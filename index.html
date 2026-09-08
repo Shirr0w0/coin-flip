@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>동전 던지기와 상대도수</title>
+<style>
+  :root{
+    --bg:#f6f7fb;
+    --panel:#ffffff;
+    --text:#20242c;
+    --muted:#6b7280;
+    --line:#dfe3ea;
+    --accent:#3457d5;
+    --accent-soft:#e9edff;
+    --front:#f6c85f;
+    --back:#9bb7e8;
+    --good:#1f8a70;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;width:100%;height:100%;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:var(--bg);color:var(--text)}
+  body{overflow:hidden}
+  button{font:inherit}
+  .app{
+    width:100%;
+    height:100%;
+    padding:10px;
+    display:grid;
+    grid-template-columns:minmax(390px,0.92fr) minmax(500px,1.08fr);
+    gap:10px;
+  }
+  .panel{
+    min-width:0;
+    min-height:0;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:18px;
+    overflow:hidden;
+  }
+  .left{
+    display:grid;
+    grid-template-rows:auto minmax(210px,1fr) auto auto auto;
+    padding:14px;
+    gap:8px;
+  }
+  .right{
+    display:grid;
+    grid-template-rows:auto minmax(0,1fr) auto;
+    padding:14px;
+    gap:8px;
+  }
+  .topline{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:10px;
+  }
+  h1,h2,p{margin:0}
+  h1{font-size:22px;line-height:1.25}
+  h2{font-size:19px;line-height:1.25}
+  .sub{font-size:13px;color:var(--muted);margin-top:3px}
+  .reset{
+    min-width:88px;
+    min-height:40px;
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--text);
+    border-radius:12px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .top-controls{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:7px;
+    flex:0 0 auto;
+  }
+  .skip-check{
+    min-height:34px;
+    padding:5px 9px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:#f8f9fc;
+    display:flex;
+    align-items:center;
+    gap:7px;
+    font-size:12px;
+    font-weight:800;
+    color:var(--text);
+    cursor:pointer;
+    white-space:nowrap;
+    user-select:none;
+  }
+  .skip-check input{
+    width:18px;
+    height:18px;
+    margin:0;
+    accent-color:var(--accent);
+    cursor:pointer;
+  }
+
+  /* 동전 무대 */
+  .stage{
+    position:relative;
+    min-height:0;
+    border-radius:16px;
+    background:
+      radial-gradient(circle at 50% 78%, rgba(0,0,0,.06), transparent 28%),
+      linear-gradient(#fbfcff,#f4f6fb);
+    overflow:hidden;
+    perspective:1000px;
+  }
+  .shadow{
+    position:absolute;
+    left:50%;
+    bottom:17%;
+    width:112px;
+    height:20px;
+    transform:translateX(-50%);
+    border-radius:50%;
+    background:rgba(0,0,0,.13);
+    filter:blur(3px);
+    opacity:.72;
+  }
+  .coin-holder{
+    position:absolute;
+    left:50%;
+    top:54%;
+    width:138px;
+    height:138px;
+    transform:translate(-50%,-50%);
+    transform-style:preserve-3d;
+    will-change:transform;
+  }
+  .coin{
+    position:relative;
+    width:100%;
+    height:100%;
+    transform-style:preserve-3d;
+    will-change:transform;
+  }
+  .face{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:50%;
+    backface-visibility:hidden;
+    -webkit-backface-visibility:hidden;
+    border:7px solid rgba(78,73,51,.22);
+    box-shadow:
+      inset 0 0 0 5px rgba(255,255,255,.45),
+      inset 0 -7px 13px rgba(0,0,0,.10),
+      0 10px 19px rgba(0,0,0,.16);
+  }
+  .front{
+    background:radial-gradient(circle at 35% 30%,#fff4bf 0 11%,var(--front) 45%,#d9a935 100%);
+  }
+  .back{
+    background:radial-gradient(circle at 35% 30%,#edf4ff 0 11%,var(--back) 45%,#6f8fc7 100%);
+    transform:rotateY(180deg);
+  }
+  .coin-ring{
+    width:94px;height:94px;border:2px dashed rgba(38,42,47,.34);border-radius:50%;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+  }
+  .coin-main{font-size:44px;font-weight:900;line-height:1}
+  .coin-eng{font-size:11px;font-weight:800;letter-spacing:.8px;margin-top:6px;opacity:.64}
+
+  .resultBox{
+    min-height:55px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    text-align:center;
+  }
+  .resultMain{font-size:23px;font-weight:900}
+  .resultSub{font-size:13px;color:var(--muted);margin-top:2px}
+  .toss{
+    min-height:48px;
+    width:100%;
+    border:0;
+    border-radius:14px;
+    background:var(--accent);
+    color:white;
+    font-weight:900;
+    font-size:18px;
+    cursor:pointer;
+    box-shadow:0 4px 0 rgba(31,57,158,.28);
+  }
+  .toss:active{transform:translateY(1px);box-shadow:0 3px 0 rgba(31,57,158,.28)}
+  .toss:disabled,.reset:disabled{opacity:.5;cursor:not-allowed}
+
+  .stats{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:7px;
+  }
+  .stat{
+    background:#f7f8fb;
+    border:1px solid #eceff4;
+    border-radius:12px;
+    padding:8px;
+    text-align:center;
+  }
+  .stat .label{font-size:12px;color:var(--muted)}
+  .stat .num{font-size:20px;font-weight:900;margin-top:1px}
+
+  .freq{
+    border-top:1px solid var(--line);
+    padding-top:8px;
+  }
+  .freqHead{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-bottom:6px;
+  }
+  .freqItem{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:7px 9px;
+    border-radius:10px;
+    background:#fafbfe;
+    border:1px solid #eef1f5;
+    font-size:13px;
+  }
+  .freqItem strong{font-size:20px}
+  .bar{
+    height:13px;
+    overflow:hidden;
+    display:flex;
+    border-radius:999px;
+    background:#e9edf3;
+  }
+  .headbar{height:100%;background:var(--front);width:0%;transition:width .3s ease}
+  .tailbar{height:100%;background:var(--back);width:0%;transition:width .3s ease}
+  .formula{font-size:12px;color:var(--muted);margin-top:5px;text-align:center}
+
+  .tableWrap{
+    min-height:0;
+    overflow:auto;
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:#fff;
+  }
+  table{width:100%;border-collapse:collapse;min-width:560px}
+  th,td{
+    padding:8px 9px;
+    border-bottom:1px solid #e9ecf1;
+    text-align:center;
+    font-size:13px;
+    white-space:nowrap;
+  }
+  th{
+    position:sticky;
+    top:0;
+    z-index:2;
+    background:#f7f8fb;
+    color:#596170;
+    font-weight:800;
+  }
+  tbody tr:last-child td{border-bottom:0}
+  .empty{color:var(--muted);padding:30px 8px}
+  .chip{
+    display:inline-flex;align-items:center;justify-content:center;
+    min-width:45px;padding:3px 8px;border-radius:999px;font-weight:800;
+  }
+  .chip.frontChip{background:#fff2c9}
+  .chip.backChip{background:#e6eefc}
+  .tip{
+    font-size:12.5px;
+    line-height:1.45;
+    color:var(--muted);
+    background:#f8f9fc;
+    border-radius:11px;
+    padding:8px 10px;
+  }
+  .tip b{color:var(--text)}
+  .countBadge{font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap}
+
+  @media (max-width: 900px){
+    body{overflow:auto}
+    .app{height:auto;min-height:100%;grid-template-columns:1fr}
+    .left{min-height:650px}
+    .right{min-height:620px}
+  }
+
+  /* 태블릿 가로 화면 압축 */
+  @media (orientation:landscape) and (max-height:760px){
+    .app{padding:7px;gap:7px}
+    .panel{border-radius:14px}
+    .left,.right{padding:10px;gap:6px}
+    h1{font-size:18px}
+    h2{font-size:17px}
+    .sub{font-size:11.5px}
+    .reset{min-height:34px}
+    .top-controls{gap:4px}
+    .skip-check{min-height:29px;padding:3px 7px;font-size:10.5px}
+    .skip-check input{width:16px;height:16px}
+    .left{grid-template-rows:auto minmax(165px,1fr) 47px 44px auto}
+    .coin-holder{width:116px;height:116px;top:51%}
+    .coin-ring{width:78px;height:78px}
+    .coin-main{font-size:35px}
+    .coin-eng{font-size:9px}
+    .shadow{width:90px;height:16px;bottom:13%}
+    .resultBox{min-height:45px}
+    .resultMain{font-size:19px}
+    .resultSub{font-size:11.5px}
+    .toss{min-height:44px;font-size:16px}
+    .stat{padding:5px}
+    .stat .label{font-size:10.5px}
+    .stat .num{font-size:17px}
+    .freq{padding-top:5px}
+    .freqHead{margin-bottom:4px;gap:5px}
+    .freqItem{padding:4px 7px;font-size:11px}
+    .freqItem strong{font-size:16px}
+    .bar{height:10px}
+    .formula{font-size:10.5px;margin-top:3px}
+    th,td{padding:6px 7px;font-size:11.5px}
+    .tip{font-size:11px;padding:6px 8px}
+  }
+
+
+  /* 태블릿/모바일 호환용 CSS 애니메이션 */
+  .coin-holder.fly-motion{
+    animation:coinFly 1.35s cubic-bezier(.22,.70,.26,1) both;
+  }
+  .coin.spin-motion{
+    animation:coinSpin 1.35s cubic-bezier(.18,.78,.24,1) both;
+  }
+  .shadow.shadow-motion{
+    animation:shadowMove 1.35s ease-in-out both;
+  }
+  @keyframes coinFly{
+    0%   {transform:translate(-50%,-50%) translate(0,0) scale(1)}
+    18%  {transform:translate(-50%,-50%) translate(calc(var(--side,0px) * .18),-52px) scale(.97)}
+    42%  {transform:translate(-50%,-50%) translate(calc(var(--side,0px) * .62),calc(var(--peak,-145px) * .84)) scale(.92)}
+    52%  {transform:translate(-50%,-50%) translate(var(--side,0px),var(--peak,-145px)) scale(.90)}
+    68%  {transform:translate(-50%,-50%) translate(calc(var(--side,0px) * .55),calc(var(--peak,-145px) * .65)) scale(.94)}
+    91%  {transform:translate(-50%,-50%) translate(0,9px) scale(1.04)}
+    100% {transform:translate(-50%,-50%) translate(0,0) scale(1)}
+  }
+  @keyframes coinSpin{
+    from {transform:rotateY(var(--start-rot,0deg))}
+    to   {transform:rotateY(var(--end-rot,2160deg))}
+  }
+  @keyframes shadowMove{
+    0%   {transform:translateX(-50%) scale(1);opacity:.72}
+    50%  {transform:translateX(-50%) scale(.38);opacity:.16}
+    91%  {transform:translateX(-50%) scale(1.12);opacity:.55}
+    100% {transform:translateX(-50%) scale(1);opacity:.72}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    .headbar,.tailbar{transition:none}
+    .coin-holder.fly-motion,.coin.spin-motion,.shadow.shadow-motion{animation-duration:.55s}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <section class="panel left">
+    <div class="topline">
+      <div>
+        <h1>동전 던지기와 상대도수</h1>
+        <p class="sub">시행을 반복하며 앞면과 뒷면의 상대도수가 어떻게 변하는지 관찰해 봅시다.</p>
+      </div>
+      <div class="top-controls">
+        <button class="reset" id="resetBtn" type="button">처음부터</button>
+        <label class="skip-check" for="skipAnimation">
+          <input id="skipAnimation" type="checkbox">
+          <span>애니메이션 스킵</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="stage" id="stage" aria-label="동전 던지기 애니메이션">
+      <div class="shadow" id="coinShadow"></div>
+      <div class="coin-holder" id="coinHolder">
+        <div class="coin" id="coin">
+          <div class="face front">
+            <div class="coin-ring">
+              <div class="coin-main">앞</div>
+              <div class="coin-eng">HEADS</div>
+            </div>
+          </div>
+          <div class="face back">
+            <div class="coin-ring">
+              <div class="coin-main">뒤</div>
+              <div class="coin-eng">TAILS</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="resultBox" aria-live="polite">
+      <div class="resultMain" id="resultMain">준비!</div>
+      <div class="resultSub" id="resultSub">버튼을 눌러 동전을 던져 보세요.</div>
+    </div>
+
+    <button class="toss" id="tossBtn" type="button">동전 던지기</button>
+
+    <div>
+      <div class="stats">
+        <div class="stat"><div class="label">시행 횟수</div><div class="num" id="total">0</div></div>
+        <div class="stat"><div class="label">앞면 횟수</div><div class="num" id="heads">0</div></div>
+        <div class="stat"><div class="label">뒷면 횟수</div><div class="num" id="tails">0</div></div>
+      </div>
+
+      <div class="freq">
+        <div class="freqHead">
+          <div class="freqItem"><span>앞면 상대도수</span><strong id="headFreq">0.00</strong></div>
+          <div class="freqItem"><span>뒷면 상대도수</span><strong id="tailFreq">0.00</strong></div>
+        </div>
+        <div class="bar" aria-label="앞면과 뒷면 상대도수 비교">
+          <div class="headbar" id="headBar"></div>
+          <div class="tailbar" id="tailBar"></div>
+        </div>
+        <div class="formula" id="formula">상대도수 = 해당 결과가 나온 횟수 ÷ 전체 시행 횟수</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel right">
+    <div class="topline">
+      <div>
+        <h2>시행 결과 기록</h2>
+        <p class="sub">각 시행 직후의 누적 상대도수를 표시합니다.</p>
+      </div>
+      <div class="countBadge" id="recordCount">기록 0개</div>
+    </div>
+
+    <div class="tableWrap" id="tableWrap">
+      <table>
+        <thead>
+          <tr>
+            <th>시행 횟수</th>
+            <th>결과</th>
+            <th>앞면 상대도수</th>
+            <th>뒷면 상대도수</th>
+          </tr>
+        </thead>
+        <tbody id="records">
+          <tr id="emptyRow"><td class="empty" colspan="4">아직 시행한 결과가 없습니다.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="tip">
+      <b>관찰 포인트</b> — 시행 횟수가 많아질수록 앞면과 뒷면의 상대도수가 각각 <b>0.5</b>에 가까워지는지 확인해 보세요.
+      적은 횟수에서는 한쪽 면이 연속으로 나오거나 상대도수가 크게 치우칠 수도 있습니다.
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const coin = document.getElementById('coin');
+  const holder = document.getElementById('coinHolder');
+  const shadow = document.getElementById('coinShadow');
+  const tossBtn = document.getElementById('tossBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const skipAnimation = document.getElementById('skipAnimation');
+  const totalEl = document.getElementById('total');
+  const headsEl = document.getElementById('heads');
+  const tailsEl = document.getElementById('tails');
+  const headFreqEl = document.getElementById('headFreq');
+  const tailFreqEl = document.getElementById('tailFreq');
+  const headBar = document.getElementById('headBar');
+  const tailBar = document.getElementById('tailBar');
+  const resultMain = document.getElementById('resultMain');
+  const resultSub = document.getElementById('resultSub');
+  const records = document.getElementById('records');
+  const tableWrap = document.getElementById('tableWrap');
+  const recordCount = document.getElementById('recordCount');
+  const formula = document.getElementById('formula');
+
+  let total = 0, heads = 0, tails = 0;
+  let rotation = 0;
+  let busy = false;
+
+  const reducedMotion = window.matchMedia &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function fairCoin() {
+    try {
+      const arr = new Uint32Array(1);
+      crypto.getRandomValues(arr);
+      return (arr[0] & 1) === 0;
+    } catch (e) {
+      return Math.random() < 0.5;
+    }
+  }
+
+  function rel(n, d) {
+    return d === 0 ? '0.00' : (n / d).toFixed(2);
+  }
+
+  function updateStats() {
+    const hf = total ? heads / total : 0;
+    const tf = total ? tails / total : 0;
+
+    totalEl.textContent = total;
+    headsEl.textContent = heads;
+    tailsEl.textContent = tails;
+    headFreqEl.textContent = hf.toFixed(2);
+    tailFreqEl.textContent = tf.toFixed(2);
+
+    headBar.style.width = (hf * 100) + '%';
+    tailBar.style.width = (tf * 100) + '%';
+    recordCount.textContent = '기록 ' + total + '개';
+
+    formula.textContent = total
+      ? `앞면 ${heads} ÷ ${total} = ${hf.toFixed(2)}   ·   뒷면 ${tails} ÷ ${total} = ${tf.toFixed(2)}`
+      : '상대도수 = 해당 결과가 나온 횟수 ÷ 전체 시행 횟수';
+  }
+
+  function addRecord(isHeads) {
+    const empty = document.getElementById('emptyRow');
+    if (empty) empty.remove();
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${total}</td>
+      <td><span class="chip ${isHeads ? 'frontChip' : 'backChip'}">${isHeads ? '앞면' : '뒷면'}</span></td>
+      <td>${rel(heads, total)}</td>
+      <td>${rel(tails, total)}</td>
+    `;
+    records.appendChild(tr);
+    tableWrap.scrollTop = tableWrap.scrollHeight;
+  }
+
+  async function animateCoin(isHeads) {
+    const desiredMod = isHeads ? 0 : 180;
+    const currentMod = ((rotation % 360) + 360) % 360;
+    let adjust = desiredMod - currentMod;
+    if (adjust <= 0) adjust += 360;
+
+    const spins = 6 + Math.floor(Math.random() * 3);
+    const targetRotation = rotation + spins * 360 + adjust;
+
+    const sideways = Math.round((Math.random() * 2 - 1) * 34);
+    const peak = -(138 + Math.round(Math.random() * 28));
+    const duration = reducedMotion ? 550 : 1350;
+
+    if (skipAnimation.checked) {
+      holder.classList.remove('fly-motion');
+      coin.classList.remove('spin-motion');
+      shadow.classList.remove('shadow-motion');
+      holder.style.removeProperty('--side');
+      holder.style.removeProperty('--peak');
+      coin.style.removeProperty('--start-rot');
+      coin.style.removeProperty('--end-rot');
+
+      rotation = targetRotation;
+      coin.style.transform = `rotateY(${rotation}deg)`;
+      return;
+    }
+
+    resultMain.textContent = '동전이 날아갑니다!';
+    resultSub.textContent = '앞면일까요, 뒷면일까요?';
+
+    /* 이전 애니메이션 상태 제거 */
+    holder.classList.remove('fly-motion');
+    coin.classList.remove('spin-motion');
+    shadow.classList.remove('shadow-motion');
+
+    /* 브라우저가 클래스 재적용을 새 애니메이션으로 인식하도록 강제 리플로우 */
+    void holder.offsetWidth;
+    void coin.offsetWidth;
+    void shadow.offsetWidth;
+
+    holder.style.setProperty('--side', sideways + 'px');
+    holder.style.setProperty('--peak', peak + 'px');
+    coin.style.setProperty('--start-rot', rotation + 'deg');
+    coin.style.setProperty('--end-rot', targetRotation + 'deg');
+
+    holder.classList.add('fly-motion');
+    coin.classList.add('spin-motion');
+    shadow.classList.add('shadow-motion');
+
+    await new Promise(resolve => {
+      let finished = false;
+
+      const done = () => {
+        if (finished) return;
+        finished = true;
+        holder.removeEventListener('animationend', done);
+        clearTimeout(fallback);
+        resolve();
+      };
+
+      holder.addEventListener('animationend', done, { once: true });
+
+      /* 일부 태블릿 브라우저에서 animationend 누락 시에도 정상 진행 */
+      const fallback = setTimeout(done, duration + 180);
+    });
+
+    rotation = targetRotation;
+
+    holder.classList.remove('fly-motion');
+    coin.classList.remove('spin-motion');
+    shadow.classList.remove('shadow-motion');
+
+    holder.style.removeProperty('--side');
+    holder.style.removeProperty('--peak');
+    coin.style.removeProperty('--start-rot');
+    coin.style.removeProperty('--end-rot');
+
+    /* 마지막 면을 정확히 고정 */
+    coin.style.transform = `rotateY(${rotation}deg)`;
+  }
+
+  async function toss() {
+    if (busy) return;
+    busy = true;
+    tossBtn.disabled = true;
+    resetBtn.disabled = true;
+
+    const isHeads = fairCoin();
+    await animateCoin(isHeads);
+
+    total++;
+    if (isHeads) heads++; else tails++;
+
+    addRecord(isHeads);
+    updateStats();
+
+    resultMain.textContent = isHeads ? '앞면!' : '뒷면!';
+    resultSub.textContent = `${total}번째 시행 결과`;
+
+    busy = false;
+    tossBtn.disabled = false;
+    resetBtn.disabled = false;
+  }
+
+  function reset() {
+    if (busy) return;
+
+    total = 0;
+    heads = 0;
+    tails = 0;
+    rotation = 0;
+    coin.style.transform = 'rotateY(0deg)';
+
+    records.innerHTML = '<tr id="emptyRow"><td class="empty" colspan="4">아직 시행한 결과가 없습니다.</td></tr>';
+    resultMain.textContent = '준비!';
+    resultSub.textContent = '버튼을 눌러 동전을 던져 보세요.';
+    updateStats();
+  }
+
+  tossBtn.addEventListener('click', toss);
+  resetBtn.addEventListener('click', reset);
+  updateStats();
+})();
+</script>
+</body>
+</html>
